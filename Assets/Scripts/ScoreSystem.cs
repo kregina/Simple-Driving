@@ -11,7 +11,7 @@ public class ScoreSystem : MonoBehaviour
     public const string HighScoreKey = "HighScore";
 
     private float score;
-    
+
     void Update()
     {
         score += Time.deltaTime * scoreMultiplier;
