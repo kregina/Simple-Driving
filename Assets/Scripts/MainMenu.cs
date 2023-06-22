@@ -10,15 +10,18 @@ public class MainMenu : MonoBehaviour
 {
     [SerializeField] private TMP_Text highScoreText;
     [SerializeField] private TMP_Text energyText;
+    [SerializeField] private TMP_Text rechargingText;
     [SerializeField] private int maxEnergy;
     [SerializeField] private int energyRechargeDuration;
     [SerializeField] private Button playButton;
     [SerializeField] private AndroidNotificationsHandler androidNotificationsHandler;
 
-    private int energy;
-
     private const string EnergyKey = "Energy";
     private const string EnergyReadyKey = "EnergyReady";
+
+    private int energy;
+    private DateTime energyReadyTime;
+    private Coroutine countdownCoroutine;
 
     private void Start()
     {
@@ -27,10 +30,9 @@ public class MainMenu : MonoBehaviour
 
     private void OnApplicationFocus(bool hasFocus)
     {
-        if(!hasFocus) { return; }
+        if (!hasFocus) return;
 
         CancelInvoke();
-
         LoadHighScore();
         LoadEnergy();
     }
@@ -45,54 +47,80 @@ public class MainMenu : MonoBehaviour
 
             if (energyReadyString == string.Empty) return;
 
-            DateTime energyReady = DateTime.Parse(energyReadyString);
+            energyReadyTime = DateTime.Parse(energyReadyString);
 
-            if (DateTime.Now > energyReady)
+            if (DateTime.Now > energyReadyTime)
             {
                 energy = maxEnergy;
                 PlayerPrefs.SetInt(EnergyKey, energy);
             }
             else
             {
+                TimeSpan remainingTime = energyReadyTime - DateTime.Now;
+                StartCountdown(remainingTime);
+                rechargingText.gameObject.SetActive(true);
                 playButton.interactable = false;
-                Invoke(nameof(EnergyRecharged), (energyReady - DateTime.Now).Seconds);
             }
         }
 
-        energyText.text = $"Play ({energy})";
+        UpdateEnergyText();
+    }
+
+    private void StartCountdown(TimeSpan remainingTime)
+    {
+        if (countdownCoroutine != null)
+            StopCoroutine(countdownCoroutine);
+
+        countdownCoroutine = StartCoroutine(CountdownCoroutine(remainingTime));
+    }
+
+    private System.Collections.IEnumerator CountdownCoroutine(TimeSpan remainingTime)
+    {
+        while (remainingTime.TotalSeconds > 0)
+        {
+            rechargingText.text = $"Recharging: {remainingTime.Seconds}s";
+            yield return new WaitForSeconds(1f);
+            remainingTime = energyReadyTime - DateTime.Now;
+        }
+
+        EnergyRecharged();
     }
 
     private void EnergyRecharged()
     {
+        rechargingText.gameObject.SetActive(false);
         playButton.interactable = true;
         energy = maxEnergy;
         PlayerPrefs.SetInt(EnergyKey, energy);
-        PlayerPrefs.SetInt(EnergyKey, energy);
-        energyText.text = $"Play ({energy})";
+        PlayerPrefs.SetString(EnergyReadyKey, string.Empty);
+        UpdateEnergyText();
     }
 
     private void LoadHighScore()
     {
         int highScore = PlayerPrefs.GetInt(ScoreSystem.HighScoreKey, 0);
-
         highScoreText.text = $"High Score: {highScore}";
+    }
+
+    private void UpdateEnergyText()
+    {
+        energyText.text = $"Play ({energy})";
     }
 
     public void Play()
     {
-        if (energy < 1) { return; }
+        if (energy < 1) return;
 
         energy--;
-
         PlayerPrefs.SetInt(EnergyKey, energy);
 
         if (energy == 0)
         {
-            DateTime energyReady = DateTime.Now.AddMinutes(energyRechargeDuration);
-            PlayerPrefs.SetString(EnergyReadyKey, energyReady.ToString());
+            energyReadyTime = DateTime.Now.AddMinutes(energyRechargeDuration);
+            PlayerPrefs.SetString(EnergyReadyKey, energyReadyTime.ToString());
 
 #if UNITY_ANDROID
-            androidNotificationsHandler.ScheduleNotification(energyReady);
+            androidNotificationsHandler.ScheduleNotification(energyReadyTime);
 #endif
         }
 
