@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
 using System;
+using UnityEngine.UI;
 
 public class MainMenu : MonoBehaviour
 {
@@ -11,6 +12,7 @@ public class MainMenu : MonoBehaviour
     [SerializeField] private TMP_Text energyText;
     [SerializeField] private int maxEnergy;
     [SerializeField] private int energyRechargeDuration;
+    [SerializeField] private Button playButton;
     [SerializeField] private AndroidNotificationsHandler androidNotificationsHandler;
 
     private int energy;
@@ -20,6 +22,15 @@ public class MainMenu : MonoBehaviour
 
     private void Start()
     {
+        OnApplicationFocus(true);
+    }
+
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if(!hasFocus) { return; }
+
+        CancelInvoke();
+
         LoadHighScore();
         LoadEnergy();
     }
@@ -41,8 +52,22 @@ public class MainMenu : MonoBehaviour
                 energy = maxEnergy;
                 PlayerPrefs.SetInt(EnergyKey, energy);
             }
+            else
+            {
+                playButton.interactable = false;
+                Invoke(nameof(EnergyRecharged), (energyReady - DateTime.Now).Seconds);
+            }
         }
 
+        energyText.text = $"Play ({energy})";
+    }
+
+    private void EnergyRecharged()
+    {
+        playButton.interactable = true;
+        energy = maxEnergy;
+        PlayerPrefs.SetInt(EnergyKey, energy);
+        PlayerPrefs.SetInt(EnergyKey, energy);
         energyText.text = $"Play ({energy})";
     }
 
